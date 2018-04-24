@@ -60,6 +60,8 @@ func replicateRecords(rs []dns.RR) error {
 			fmt.Printf("CNAME: \"%v\", \"%v\"\n", t.Hdr.Name, t.Target)
 		case *dns.MX:
 			fmt.Printf("MX: \"%v\", \"%v\"\n", t.Hdr.Name, t.Mx)
+                case *dns.TXT:
+                        fmt.Printf("TXT: \"%v\", \"%v\"\n", t.Hdr.Name, t.Txt)
 		default:
 			// NOOP
 		}
