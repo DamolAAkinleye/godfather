@@ -8,21 +8,18 @@ import (
 )
 
 func main() {
-	// 10.11.100.30
-	records, err := transferRecords("in.creditcards.com.", "10.11.100.30")
+	zones := []string{"in.creditcards.com.", "staging.in.creditcards.com."}
 
-	if err != nil {
-		log.Fatalf("Error fetching records: %s\n", err)
-	}
+	for _, zone := range zones {
+		// ccads.in.creditcars.com - 10.11.100.30
+		records, err := transferRecords(zone, "10.11.100.30")
 
-	for _, record := range records {
-		switch t := interface{}(record).(type) {
-		case *dns.A:
-			fmt.Printf("A: \"%v\", \"%v\"\n", t.Hdr.Name, t.A)
-		case *dns.CNAME:
-			fmt.Printf("CNAME: \"%v\", \"%v\"\n", t.Hdr.Name, t.Target)
-		default:
-			// NOOP
+		if err != nil {
+			log.Fatalf("Error fetching records: %s\n", err)
+		}
+
+		if err := replicateRecords(records); err != nil {
+			log.Printf("Error replicating zone %s: %s\n", zone, err)
 		}
 	}
 }
@@ -52,4 +49,21 @@ func transferRecords(z string, ns string) ([]dns.RR, error) {
 	}
 
 	return records, nil
+}
+
+func replicateRecords(rs []dns.RR) error {
+	for _, record := range rs {
+		switch t := interface{}(record).(type) {
+		case *dns.A:
+			fmt.Printf("A: \"%v\", \"%v\"\n", t.Hdr.Name, t.A)
+		case *dns.CNAME:
+			fmt.Printf("CNAME: \"%v\", \"%v\"\n", t.Hdr.Name, t.Target)
+		case *dns.MX:
+			fmt.Printf("MX: \"%v\", \"%v\"\n", t.Hdr.Name, t.Mx)
+		default:
+			// NOOP
+		}
+	}
+
+	return nil
 }
