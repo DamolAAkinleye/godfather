@@ -1,11 +1,37 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"github.com/miekg/dns"
 	"log"
 	"time"
+
+	"github.com/miekg/dns"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/route53"
 )
+
+var name string
+var target string
+var TTL int64
+var weight = int64(1)
+var zoneId string
+
+func init() {
+	flag.StringVar(&name, "d", "", "domain name")
+	flag.StringVar(&target, "t", "", "target of domain name")
+	flag.StringVar(&zoneId, "z", "", "AWS Zone Id for domain")
+	flag.Int64Var(&TTL, "ttl", int64(60), "TTL for DNS Cache")
+
+}
+
+fmt.Printf(name)
+fmt.Printf(target)
+fmt.Printf(TTL)
+fmt.Printf(weight)
+fmt.Printf(zoneId)
+
 
 func main() {
 	zones := []string{"in.creditcards.com.", "staging.in.creditcards.com."}
@@ -60,8 +86,8 @@ func replicateRecords(rs []dns.RR) error {
 			fmt.Printf("CNAME: \"%v\", \"%v\"\n", t.Hdr.Name, t.Target)
 		case *dns.MX:
 			fmt.Printf("MX: \"%v\", \"%v\"\n", t.Hdr.Name, t.Mx)
-                case *dns.TXT:
-                        fmt.Printf("TXT: \"%v\", \"%v\"\n", t.Hdr.Name, t.Txt)
+		case *dns.TXT:
+			fmt.Printf("TXT: \"%v\", \"%v\"\n", t.Hdr.Name, t.Txt)
 		default:
 			// NOOP
 		}
