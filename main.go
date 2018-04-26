@@ -6,6 +6,9 @@ import (
 	"log"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/miekg/dns"
 )
 
@@ -21,7 +24,7 @@ func init() {
 	flag.StringVar(&zoneId, "aws_zoneId", "", "AWS Zone Id for domain")
 	flag.Int64Var(&TTL, "ttl", int64(60), "TTL for DNS Cache")
 
-	fmt.Printf(name)
+	fmt.Println(name)
 	fmt.Println(target)
 	fmt.Println(zoneId)
 	fmt.Println(TTL)
@@ -43,6 +46,15 @@ func main() {
 			log.Printf("Error replicating zone %s: %s\n", zone, err)
 		}
 	}
+	sess, err := session.NewSession()
+	if err != nil {
+		fmt.Println("failed to create session,", err)
+		return
+	}
+	svc := route53.New(sess)
+
+	listCNAMES(svc)
+
 }
 
 // Transfer records from the dns zone `z` and nameserver `ns`
@@ -89,4 +101,29 @@ func replicateRecords(rs []dns.RR) error {
 	}
 
 	return nil
+}
+
+func listCNAMES(svc *route53.Route53) {
+	// Now lets list all of the records.
+	// For the life of me, I can't figure out how to get these lists to actually constrain the results.
+	// AFAICT, supplying only the HostedZoneId returns exactly the same results as any valid input in all params.
+	listParams := &route53.ListResourceRecordSetsInput{
+		HostedZoneId: aws.String(zoneId), // Required
+		// MaxItems:              aws.String("100"),
+		// StartRecordIdentifier: aws.String("Sample update."),
+		// StartRecordName:       aws.String("com."),
+		// StartRecordType:       aws.String("CNAME"),
+	}
+	respList, err := svc.ListResourceRecordSets(listParams)
+
+	if err != nil {
+		// Print the error, cast err to awserr.Error to get the Code and
+		// Message from an error.
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Pretty-print the response data.
+	fmt.Println("All records:")
+	fmt.Println(respList)
 }
