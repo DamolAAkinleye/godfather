@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -49,8 +50,6 @@ func main() {
 		if err != nil {
 			log.Fatalf("Error fetching records: %s\n", err)
 		}
-
-		fmt.Printf("Total record count: %s\n", len(records))
 
 		if err := replicateRecords(svc, records); err != nil {
 			log.Printf("Error replicating zone %s: %s\n", zone, err)
@@ -99,12 +98,6 @@ func transferRecords(z string, ns string) ([]dns.RR, error) {
 
 // TODO: This requires quite a bit of cleanup
 func replicateRecords(svc *route53.Route53, rs []dns.RR) error {
-	cs := &route53.ChangeResourceRecordSetsInput{
-		HostedZoneId: aws.String(zoneId),
-	}
-	cb := &route53.ChangeBatch{
-		Comment: aws.String(time.Now().UTC().String()),
-	}
 	var changes []*route53.Change
 
 	for _, record := range rs {
@@ -170,6 +163,7 @@ func replicateRecords(svc *route53.Route53, rs []dns.RR) error {
 	}
 
 	// TODO: Turn this into a loop on 500 record chunks
+	wg := sync.WaitGroup{}
 	chunkSize := 500
 	for chunk := 0; (chunk * chunkSize) < len(changes); chunk++ {
 		var bounds int
@@ -180,17 +174,35 @@ func replicateRecords(svc *route53.Route53, rs []dns.RR) error {
 			bounds = len(changes)
 		}
 
-		cb.SetChanges(changes[chunk*chunkSize : bounds])
-		cs.SetChangeBatch(cb)
+		chunkedChanges := changes[chunk*chunkSize : bounds]
 
-		resp, err := svc.ChangeResourceRecordSets(cs)
-
-		if err != nil {
-			return err
-		}
-
-		fmt.Printf("%#v\n", resp)
+		wg.Add(1)
+		go makeRoute53Request(svc, chunkedChanges, &wg)
 	}
+
+	// Wait for requests to finish
+	wg.Wait()
+
+	return nil
+}
+
+func makeRoute53Request(svc *route53.Route53, changes []*route53.Change, wg *sync.WaitGroup) error {
+	defer wg.Done()
+
+	cs := &route53.ChangeResourceRecordSetsInput{
+		HostedZoneId: aws.String(zoneId),
+		ChangeBatch: &route53.ChangeBatch{
+			Comment: aws.String(time.Now().UTC().String()),
+			Changes: changes,
+		},
+	}
+	resp, err := svc.ChangeResourceRecordSets(cs)
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Created %d records; %#v\n", len(changes), resp)
 
 	return nil
 }
