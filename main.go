@@ -19,10 +19,10 @@ var weight = int64(1)
 var zoneId string
 
 func init() {
-	flag.StringVar(&name, "aws_domain_name", "", "domain name")
-	flag.StringVar(&target, "aws_target_domain", "", "target of domain name")
-	flag.StringVar(&zoneId, "aws_zoneId", "", "AWS Zone Id for domain")
-	flag.Int64Var(&TTL, "ttl", int64(60), "TTL for DNS Cache")
+	flag.StringVar(&name, "d", "", "domain name")
+	flag.StringVar(&target, "t", "", "target of domain name")
+	flag.StringVar(&zoneId, "z", "", "AWS Zone Id for domain")
+	//flag.Int64Var(&TTL, "ttl", int64(60), "TTL for DNS Cache")
 
 	fmt.Println(name)
 	fmt.Println(target)
@@ -32,6 +32,7 @@ func init() {
 }
 
 func main() {
+	//Active Directory zones being pulled
 	zones := []string{"in.creditcards.com.", "staging.in.creditcards.com."}
 
 	for _, zone := range zones {
@@ -46,6 +47,18 @@ func main() {
 			log.Printf("Error replicating zone %s: %s\n", zone, err)
 		}
 	}
+	//End AD zone pull
+
+	// Start Route53
+
+	flag.Parse()
+	if name == "" || target == "" || zoneId == "" {
+		fmt.Println(fmt.Errorf("Incomplete arguments: d: %s, t: %s, z: %s\n", name, target, zoneId))
+		flag.PrintDefaults()
+		return
+	}
+
+	// Establish AWS session
 	sess, err := session.NewSession()
 	if err != nil {
 		fmt.Println("failed to create session,", err)
@@ -109,6 +122,9 @@ func listCNAMES(svc *route53.Route53) {
 	// AFAICT, supplying only the HostedZoneId returns exactly the same results as any valid input in all params.
 	listParams := &route53.ListResourceRecordSetsInput{
 		HostedZoneId: aws.String(zoneId), // Required
+		// Test static zone below
+		//HostedZoneId: aws.String("Z3BWSUB0RPS89Q"), // Required
+
 		// MaxItems:              aws.String("100"),
 		// StartRecordIdentifier: aws.String("Sample update."),
 		// StartRecordName:       aws.String("com."),
