@@ -1,8 +1,6 @@
 package main
 
 import (
-	// "flag"
-	"context"
 	"fmt"
 	"log"
 	"strings"
@@ -29,7 +27,7 @@ type LambdaRule struct {
 
 // {   "HostedZoneID": "ABC123",   "Master": "10.0.0.1",   "Zone": "derp.com." }
 
-func HandleRequest(ctx context.Context, event LambdaRule) {
+func HandleRequest(event LambdaRule) {
 
 	// Establish AWS session
 	sess, err := session.NewSession()
