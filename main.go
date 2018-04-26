@@ -7,9 +7,6 @@ import (
 	"time"
 
 	"github.com/miekg/dns"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/route53"
 )
 
 var name string
@@ -19,19 +16,17 @@ var weight = int64(1)
 var zoneId string
 
 func init() {
-	flag.StringVar(&name, "d", "", "domain name")
-	flag.StringVar(&target, "t", "", "target of domain name")
-	flag.StringVar(&zoneId, "z", "", "AWS Zone Id for domain")
+	flag.StringVar(&name, "aws_domain_name", "", "domain name")
+	flag.StringVar(&target, "aws_target_domain", "", "target of domain name")
+	flag.StringVar(&zoneId, "aws_zoneId", "", "AWS Zone Id for domain")
 	flag.Int64Var(&TTL, "ttl", int64(60), "TTL for DNS Cache")
 
+	fmt.Printf(name)
+	fmt.Println(target)
+	fmt.Println(zoneId)
+	fmt.Println(TTL)
+	fmt.Println(weight)
 }
-
-fmt.Printf(name)
-fmt.Printf(target)
-fmt.Printf(TTL)
-fmt.Printf(weight)
-fmt.Printf(zoneId)
-
 
 func main() {
 	zones := []string{"in.creditcards.com.", "staging.in.creditcards.com."}
