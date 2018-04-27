@@ -1,8 +1,6 @@
 package main
 
 import (
-	// "flag"
-	"context"
 	"fmt"
 	"log"
 	"strings"
@@ -29,7 +27,7 @@ type LambdaRule struct {
 
 // {   "HostedZoneID": "ABC123",   "Master": "10.0.0.1",   "Zone": "derp.com." }
 
-func HandleRequest(ctx context.Context, event LambdaRule) {
+func HandleRequest(event LambdaRule) {
 
 	// Establish AWS session
 	sess, err := session.NewSession()
@@ -144,7 +142,8 @@ func replicateRecords(svc *route53.Route53, rs []dns.RR, event LambdaRule) error
 		if err := rrs.Validate(); err != nil {
 			fmt.Printf("Invalid record: %s, %s", record.Header().Name, err)
 		} else {
-			if l := len(changes); l > 0 && *changes[l-1].ResourceRecordSet.Name == record.Header().Name {
+			if l := len(changes); l > 0 &&
+				isDuplicateRecord(changes[l-1].ResourceRecordSet, rrs) {
 				previous := changes[l-1].ResourceRecordSet.ResourceRecords
 
 				previous = append(previous, rrs.ResourceRecords...)
@@ -197,4 +196,8 @@ func makeRoute53Request(svc *route53.Route53, changes []*route53.Change, wg *syn
 	}
 
 	fmt.Printf("Created %d records; %#v\n", len(changes), resp)
+}
+
+func isDuplicateRecord(a *route53.ResourceRecordSet, b *route53.ResourceRecordSet) bool {
+	return *a.Name == *b.Name && *a.Type == *b.Type
 }
