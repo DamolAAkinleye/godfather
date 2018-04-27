@@ -16,20 +16,6 @@ import (
 	"github.com/miekg/dns"
 )
 
-// var name string
-// var target string
-// var TTL int64
-var weight = int64(1)
-
-// var zoneId string
-
-// func init() {
-// 	flag.StringVar(&name, "d", "", "domain name")
-// 	flag.StringVar(&target, "t", "", "target of domain name")
-// 	flag.StringVar(&zoneId, "z", "", "AWS Zone Id for domain")
-// 	//flag.Int64Var(&TTL, "ttl", int64(60), "TTL for DNS Cache")
-//  }
-
 func main() {
 	lambda.Start(HandleRequest)
 
@@ -44,8 +30,6 @@ type LambdaRule struct {
 // {   "HostedZoneID": "ABC123",   "Master": "10.0.0.1",   "Zone": "derp.com." }
 
 func HandleRequest(ctx context.Context, event LambdaRule) {
-
-	// event.ZoneID
 
 	// Establish AWS session
 	sess, err := session.NewSession()
@@ -76,11 +60,6 @@ func HandleRequest(ctx context.Context, event LambdaRule) {
 		}
 	}
 	//End AD zone pull
-
-	// Start Route53
-
-	//listCNAMES(svc)
-
 }
 
 // Transfer records from the dns zone `z` and nameserver `ns`
@@ -200,11 +179,11 @@ func replicateRecords(svc *route53.Route53, rs []dns.RR, event LambdaRule) error
 	return nil
 }
 
-func makeRoute53Request(svc *route53.Route53, changes []*route53.Change, wg *sync.WaitGroup, zoneId string) {
+func makeRoute53Request(svc *route53.Route53, changes []*route53.Change, wg *sync.WaitGroup, zoneID string) {
 	defer wg.Done()
 
 	cs := &route53.ChangeResourceRecordSetsInput{
-		HostedZoneId: aws.String(zoneId),
+		HostedZoneId: aws.String(zoneID),
 		ChangeBatch: &route53.ChangeBatch{
 			Comment: aws.String(time.Now().UTC().String()),
 			Changes: changes,
