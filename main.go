@@ -1,33 +1,36 @@
 package main
 
 import (
-	"flag"
+	// "flag"
+	"context"
 	"fmt"
 	"log"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/miekg/dns"
 )
 
-var name string
-var target string
-var TTL int64
-var weight = int64(1)
-var zoneId string
+func main() {
+	lambda.Start(HandleRequest)
 
-func init() {
-	flag.StringVar(&name, "d", "", "domain name")
-	flag.StringVar(&target, "t", "", "target of domain name")
-	flag.StringVar(&zoneId, "z", "", "AWS Zone Id for domain")
-	//flag.Int64Var(&TTL, "ttl", int64(60), "TTL for DNS Cache")
 }
 
-func main() {
+type LambdaRule struct {
+	ZoneID string `json:"HostedZoneID"`
+	Master string `json:"Master"`
+	Zone   string `json:"Zone"`
+}
+
+// {   "HostedZoneID": "ABC123",   "Master": "10.0.0.1",   "Zone": "derp.com." }
+
+func HandleRequest(ctx context.Context, event LambdaRule) {
+
 	// Establish AWS session
 	sess, err := session.NewSession()
 	if err != nil {
@@ -37,36 +40,26 @@ func main() {
 
 	svc := route53.New(sess)
 
-	//  HERP DERP DERP DERP DREP .
-	flag.Parse()
+	if event.ZoneID == "" || event.Master == "" || event.Zone == "" {
+		fmt.Println(fmt.Errorf("Incomplete arguments: %s, %s, %s\n", event.ZoneID, event.Master, event.Zone))
+		return
+	}
 
 	//Active Directory zones being pulled
-	zones := []string{"in.creditcards.com."}
+	zones := []string{event.Zone}
 
 	for _, zone := range zones {
-		// ccads.in.creditcars.com - 10.11.100.30
-		records, err := transferRecords(zone, "10.11.100.30")
+		records, err := transferRecords(zone, event.Master)
 
 		if err != nil {
 			log.Fatalf("Error fetching records: %s\n", err)
 		}
 
-		if err := replicateRecords(svc, records); err != nil {
+		if err := replicateRecords(svc, records, event); err != nil {
 			log.Printf("Error replicating zone %s: %s\n", zone, err)
 		}
 	}
 	//End AD zone pull
-
-	// Start Route53
-
-	if name == "" || target == "" || zoneId == "" {
-		fmt.Println(fmt.Errorf("Incomplete arguments: d: %s, t: %s, z: %s\n", name, target, zoneId))
-		flag.PrintDefaults()
-		return
-	}
-
-	//listCNAMES(svc)
-
 }
 
 // Transfer records from the dns zone `z` and nameserver `ns`
@@ -97,7 +90,7 @@ func transferRecords(z string, ns string) ([]dns.RR, error) {
 }
 
 // TODO: This requires quite a bit of cleanup
-func replicateRecords(svc *route53.Route53, rs []dns.RR) error {
+func replicateRecords(svc *route53.Route53, rs []dns.RR, event LambdaRule) error {
 	var changes []*route53.Change
 
 	for _, record := range rs {
@@ -177,7 +170,7 @@ func replicateRecords(svc *route53.Route53, rs []dns.RR) error {
 		chunkedChanges := changes[chunk*chunkSize : bounds]
 
 		wg.Add(1)
-		go makeRoute53Request(svc, chunkedChanges, &wg)
+		go makeRoute53Request(svc, chunkedChanges, &wg, event.ZoneID)
 	}
 
 	// Wait for requests to finish
@@ -186,11 +179,11 @@ func replicateRecords(svc *route53.Route53, rs []dns.RR) error {
 	return nil
 }
 
-func makeRoute53Request(svc *route53.Route53, changes []*route53.Change, wg *sync.WaitGroup) error {
+func makeRoute53Request(svc *route53.Route53, changes []*route53.Change, wg *sync.WaitGroup, zoneID string) {
 	defer wg.Done()
 
 	cs := &route53.ChangeResourceRecordSetsInput{
-		HostedZoneId: aws.String(zoneId),
+		HostedZoneId: aws.String(zoneID),
 		ChangeBatch: &route53.ChangeBatch{
 			Comment: aws.String(time.Now().UTC().String()),
 			Changes: changes,
@@ -199,39 +192,9 @@ func makeRoute53Request(svc *route53.Route53, changes []*route53.Change, wg *syn
 	resp, err := svc.ChangeResourceRecordSets(cs)
 
 	if err != nil {
-		return err
-	}
-
-	fmt.Printf("Created %d records; %#v\n", len(changes), resp)
-
-	return nil
-}
-
-func listCNAMES(svc *route53.Route53) {
-	// Now lets list all of the records.
-	// For the life of me, I can't figure out how to get these lists to actually constrain the results.
-	// AFAICT, supplying only the HostedZoneId returns exactly the same results as any valid input in all params.
-	listParams := &route53.ListResourceRecordSetsInput{
-		HostedZoneId: aws.String(zoneId), // Required
-		// Test static zone below
-		//HostedZoneId: aws.String("Z3BWSUB0RPS89Q"), // Required
-
-		MaxItems: aws.String("1000"),
-		// StartRecordIdentifier: aws.String("Sample update."),
-		// StartRecordName:       aws.String("com."),
-		// StartRecordType:       aws.String("CNAME"),
-	}
-
-	respList, err := svc.ListResourceRecordSets(listParams)
-
-	if err != nil {
-		// Print the error, cast err to awserr.Error to get the Code and
-		// Message from an error.
-		fmt.Println(err.Error())
+		log.Printf("Failed to make route53 request: %s\n", err)
 		return
 	}
 
-	// Pretty-print the response data.
-	fmt.Println("All records:")
-	fmt.Println(respList)
+	fmt.Printf("Created %d records; %#v\n", len(changes), resp)
 }
