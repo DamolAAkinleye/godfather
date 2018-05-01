@@ -1,0 +1,28 @@
+service: godfather
+
+custom: ${file(./extra-values.yml)}
+
+provider:
+  name: aws
+  runtime: go1.x
+  timeout: 180
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "route53:ChangeResourceRecordSets"
+        - "route53:ListResourceRecordSets"
+      Resource:
+        - "*"
+  vpc: ${self:custom.vpc}
+  region: ${self:custom.region, 'us-east-1'}
+
+package:
+  exclude:
+    - ./**
+  include:
+    - ./main
+
+functions:
+  main:
+    handler: main
+    events: ${self:custom.events}

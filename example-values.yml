@@ -1,0 +1,19 @@
+
+# Fill in with your networking details
+# region: us-west-2
+
+vpc:
+  securityGroupIds:
+    - sg-123abc
+  subnetIds:
+    - subnet-123abc
+    - subnet-456def
+
+# Specify the events to trigger the transfer process
+events:
+  - schedule:
+      rate: rate(15 minute)
+      input:
+        HostedZoneID: ZHRHNCANSN
+        Master: 10.0.0.1
+        Zone: inside.example.com.

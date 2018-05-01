@@ -2,6 +2,15 @@
 
 Transfers DNS zone records into Route53.
 
+## Quickstart
+
+* `cp example.values.yml extra-values.yml`
+* Fill out values
+* `npm install -g serverless`
+* `dep ensure`
+* `GOOS=linux go build -o main main.go`
+* `serverless deploy`
+
 ## Contributing
 
 1. Install dep via instructions found [here](https://github.com/golang/dep)
