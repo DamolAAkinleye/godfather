@@ -2,36 +2,14 @@
 
 
 [[projects]]
+  name = "github.com/aws/aws-lambda-go"
+  packages = ["lambda","lambda/messages","lambdacontext"]
+  revision = "fafa7e49388b8991caf99308e80655ba91816b72"
+  version = "v1.1.0"
+
+[[projects]]
   name = "github.com/aws/aws-sdk-go"
-  packages = [
-    "aws",
-    "aws/awserr",
-    "aws/awsutil",
-    "aws/client",
-    "aws/client/metadata",
-    "aws/corehandlers",
-    "aws/credentials",
-    "aws/credentials/ec2rolecreds",
-    "aws/credentials/endpointcreds",
-    "aws/credentials/stscreds",
-    "aws/defaults",
-    "aws/ec2metadata",
-    "aws/endpoints",
-    "aws/request",
-    "aws/session",
-    "aws/signer/v4",
-    "internal/sdkio",
-    "internal/sdkrand",
-    "internal/shareddefaults",
-    "private/protocol",
-    "private/protocol/query",
-    "private/protocol/query/queryutil",
-    "private/protocol/rest",
-    "private/protocol/restxml",
-    "private/protocol/xml/xmlutil",
-    "service/route53",
-    "service/sts"
-  ]
+  packages = ["aws","aws/awserr","aws/awsutil","aws/client","aws/client/metadata","aws/corehandlers","aws/credentials","aws/credentials/ec2rolecreds","aws/credentials/endpointcreds","aws/credentials/stscreds","aws/defaults","aws/ec2metadata","aws/endpoints","aws/request","aws/session","aws/signer/v4","internal/sdkio","internal/sdkrand","internal/shareddefaults","private/protocol","private/protocol/query","private/protocol/query/queryutil","private/protocol/rest","private/protocol/restxml","private/protocol/xml/xmlutil","service/route53","service/sts"]
   revision = "64aa9485bf77b8a811e88e95060a4a049bb373fb"
   version = "v1.13.37"
 
@@ -55,27 +33,18 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
-  packages = [
-    "ed25519",
-    "ed25519/internal/edwards25519"
-  ]
+  packages = ["ed25519","ed25519/internal/edwards25519"]
   revision = "2b6c08872f4b66da917bb4ce98df4f0307330f78"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = [
-    "bpf",
-    "internal/iana",
-    "internal/socket",
-    "ipv4",
-    "ipv6"
-  ]
+  packages = ["bpf","internal/iana","internal/socket","ipv4","ipv6"]
   revision = "5f9ae10d9af5b1c89ae6904293b14b064d4ada23"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8cff96475a0c69e9dc194b8b8eb5956e82879515662123cf0e4676788bd502f9"
+  inputs-digest = "6ebc84323bbccbb5b3c9cc31e2cf2973e3e085e944fb678deb8272c803cc3a6b"
   solver-name = "gps-cdcl"
   solver-version = 1

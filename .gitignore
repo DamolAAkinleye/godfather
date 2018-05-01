@@ -1,3 +1,5 @@
 main
 *.zip
 vendor/
+extra-values.yml
+.serverless
