@@ -10,14 +10,6 @@ This is done through a process of a AXFR request to receive a copy of the DNS Zo
 
 Additional functionality will be added to support deletion of records. 
 
-#Server Test
-The DNS server you are using for the AXFR request will need to allow secondary zone transfers. Many Bind or AD DNS instances require IP address specific ACL's for this. You will need to ensure the AXFR request is successful from your VPC's IP address range.
-
-You can test this using DIG or telnet.
-
-"dig example.com axfr" or use a specific DNS server "dig AXFR example.com @127.0.0.1"
-
-
 ## Quickstart
 
 * `cp example.values.yml extra-values.yml`
@@ -27,8 +19,15 @@ You can test this using DIG or telnet.
 * `GOOS=linux go build -o main main.go`
 * `serverless deploy`
 
+## Server Test
+The DNS server you are using for the AXFR request will need to allow secondary zone transfers. Many Bind or AD DNS instances require IP address specific ACL's for this. You will need to ensure the AXFR request is successful from your VPC's IP address range.
 
-##Requirements
+You can test this using DIG or telnet.
+
+"dig example.com axfr" or use a specific DNS server "dig AXFR example.com @127.0.0.1"
+
+
+## Requirements
 Local golang environment installed to build go packages.
 A local NODE install for NPM.
 Need to install "Serverless" so you won't need to manually create the lambda function in your AWS account.
@@ -36,7 +35,7 @@ May need a local copy of the github 3rd party packages.
 Install dep via instructions below. 
 
 
-#extra-values.yml
+## extra-values.yml
 These values will be specific to your AWS account. You will need to use the VPC specific ID's from your environment to ensure the serverless builds the lambda function properly.
 
 
