@@ -14,7 +14,7 @@ provider:
       Resource:
         - "*"
   vpc: ${self:custom.vpc}
-  region: ${self:custom.region}
+  region: ${self:custom.region, 'us-east-1'}
 
 package:
   exclude:

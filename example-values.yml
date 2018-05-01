@@ -1,6 +1,6 @@
 
 # Fill in with your networking details
-region: us-west-2
+# region: us-west-2
 
 vpc:
   securityGroupIds:
