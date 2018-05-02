@@ -15,7 +15,6 @@ import (
 
 func main() {
 	lambda.Start(HandleRequest)
-	//Modified main to start lambda and grab the json passed in.
 }
 
 type LambdaRule struct {
