@@ -19,6 +19,7 @@ func main() {
 
 }
 
+//Lambda passes the necessary items through a JSON string provided given the three below items.
 type LambdaRule struct {
 	ZoneID string `json:"HostedZoneID"`
 	Master string `json:"Master"`
@@ -196,6 +197,40 @@ func makeRoute53Request(svc *route53.Route53, changes []*route53.Change, wg *syn
 	}
 
 	fmt.Printf("Created %d records; %#v\n", len(changes), resp)
+}
+
+func getDestinationRecords(svc *route53.Route53, zoneName string, event LambdaRule) error {
+	DestinationRecords := make(map[string]*route53.ResourceRecordSet)
+	err := populateDestinationMap(svc, zoneName, event.ZoneID, nil, &DestinationRecords)
+	return err
+}
+func populateDestinationMap(svc *route53.Route53, zoneName string, ZoneID string, respList2 *route53.ListResourceRecordSetsOutput, DestinationRecords *map[string]*route53.ResourceRecordSet) error {
+
+	var listParams = &route53.ListResourceRecordSetsInput{}
+
+	listParams = &route53.ListResourceRecordSetsInput{
+		HostedZoneId: aws.String(ZoneID), // Required
+		MaxItems:     aws.String("2")}
+
+	if respList2 != nil {
+		listParams = &route53.ListResourceRecordSetsInput{
+			HostedZoneId:          aws.String(ZoneID), // Required
+			MaxItems:              aws.String("100"),
+			StartRecordIdentifier: respList2.NextRecordIdentifier,
+			StartRecordName:       respList2.NextRecordName,
+			StartRecordType:       respList2.NextRecordType,
+		}
+	}
+	respList, err := svc.ListResourceRecordSets(listParams)
+	for _, record := range respList.ResourceRecordSets {
+		key1 := *record.Name + ":" + *record.Type
+		(*DestinationRecords)[key1] = record
+	}
+	if *respList.IsTruncated {
+		err = populateDestinationMap(svc, zoneName, ZoneID, respList, DestinationRecords)
+	}
+
+	return err
 }
 
 func isDuplicateRecord(a *route53.ResourceRecordSet, b *route53.ResourceRecordSet) bool {

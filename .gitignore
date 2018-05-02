@@ -1,5 +1,8 @@
 main
 *.zip
+*.vscode
+*debug
+*debug.*
 vendor/
 extra-values.yml
 .serverless
