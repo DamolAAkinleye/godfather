@@ -6,7 +6,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -16,7 +15,6 @@ import (
 
 func main() {
 	lambda.Start(HandleRequest)
-
 }
 
 type LambdaRule struct {
@@ -90,7 +88,7 @@ func transferRecords(z string, ns string) ([]dns.RR, error) {
 // TODO: This requires quite a bit of cleanup
 func replicateRecords(svc *route53.Route53, rs []dns.RR, event LambdaRule) error {
 	var changes []*route53.Change
-
+	//So far only supported record types are A CNAME MX and TXT. But could easily add support for record types as needed.
 	for _, record := range rs {
 		rrs := &route53.ResourceRecordSet{
 			TTL:  aws.Int64(60),
@@ -132,7 +130,7 @@ func replicateRecords(svc *route53.Route53, rs []dns.RR, event LambdaRule) error
 			// NOOP
 			continue
 		}
-
+		//Used UPSERT to create and update instead of create only.
 		c := &route53.Change{
 			Action:            aws.String("UPSERT"),
 			ResourceRecordSet: rrs,
@@ -154,7 +152,7 @@ func replicateRecords(svc *route53.Route53, rs []dns.RR, event LambdaRule) error
 
 	}
 
-	// TODO: Turn this into a loop on 500 record chunks
+	// Amazon AWS api limits to 1000 requests per session request. It double counted the list/create so have to chunk it into 500 at a time to stay under the limit.
 	wg := sync.WaitGroup{}
 	chunkSize := 500
 	for chunk := 0; (chunk * chunkSize) < len(changes); chunk++ {
@@ -198,6 +196,7 @@ func makeRoute53Request(svc *route53.Route53, changes []*route53.Change, wg *syn
 	fmt.Printf("Created %d records; %#v\n", len(changes), resp)
 }
 
+//If you have multiple A records for a single host entry with IP's this looks for that condition
 func isDuplicateRecord(a *route53.ResourceRecordSet, b *route53.ResourceRecordSet) bool {
 	return *a.Name == *b.Name && *a.Type == *b.Type
 }
