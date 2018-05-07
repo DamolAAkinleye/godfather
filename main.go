@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -48,13 +49,20 @@ func HandleRequest(event LambdaRule) {
 	zones := []string{event.Zone}
 
 	for _, zone := range zones {
-		records, err := transferRecords(zone, event.Master)
+
+		destRecords, err := getDestinationRecords(svc, zone, event)
+
+		if err != nil {
+			log.Fatalf("Error fetching destination records: %s\n", err)
+		}
+
+		records, err := acquireTransferRecords(zone, event.Master)
 
 		if err != nil {
 			log.Fatalf("Error fetching records: %s\n", err)
 		}
 
-		if err := replicateRecords(svc, records, event); err != nil {
+		if err := replicateRecords(svc, records, event, destRecords); err != nil {
 			log.Printf("Error replicating zone %s: %s\n", zone, err)
 		}
 	}
@@ -63,7 +71,7 @@ func HandleRequest(event LambdaRule) {
 
 // Transfer records from the dns zone `z` and nameserver `ns`
 // returning an array of all resource records
-func transferRecords(z string, ns string) ([]dns.RR, error) {
+func acquireTransferRecords(z string, ns string) ([]dns.RR, error) {
 	tx := dns.Transfer{}
 	msg := dns.Msg{}
 	var records []dns.RR
@@ -85,52 +93,45 @@ func transferRecords(z string, ns string) ([]dns.RR, error) {
 		records = append(records, env.RR...)
 	}
 
+	//fmt.Println(records[11].Header().Ttl)
 	return records, nil
+
 }
 
 // TODO: This requires quite a bit of cleanup
-func replicateRecords(svc *route53.Route53, rs []dns.RR, event LambdaRule) error {
+func replicateRecords(svc *route53.Route53, rs []dns.RR, event LambdaRule, destRecords map[string]*route53.ResourceRecordSet) error {
 	var changes []*route53.Change
-
+	fmt.Println(len(destRecords))
 	for _, record := range rs {
 		rrs := &route53.ResourceRecordSet{
-			TTL:  aws.Int64(60),
+			TTL:  aws.Int64(int64(record.Header().Ttl)), //TTL Handler from RR_Header miekg DNS package
 			Name: aws.String(record.Header().Name),
 		}
+		fmt.Println(reflect.TypeOf((record)))
 
 		switch t := interface{}(record).(type) {
 		case *dns.A:
-			rrs.SetType("A")
-			rrs.ResourceRecords = []*route53.ResourceRecord{
-				{
-					Value: aws.String(t.A.String()),
-				},
-			}
-		case *dns.CNAME:
-			rrs.SetType("CNAME")
-			rrs.ResourceRecords = []*route53.ResourceRecord{
-				{
-					Value: aws.String(t.Target),
-				},
-			}
-		case *dns.MX:
-			rrs.SetType("MX")
-			rrs.ResourceRecords = []*route53.ResourceRecord{
-				{
-					Value: aws.String(t.Mx),
-				},
-			}
-		case *dns.TXT:
-			value := fmt.Sprintf("\"%s\"", strings.Join(t.Txt, " "))
+			populateRecordSet(rrs, &destRecords, record.Header().Name, "A", t.A.String())
 
-			rrs.SetType("TXT")
-			rrs.ResourceRecords = []*route53.ResourceRecord{
-				{
-					Value: aws.String(value),
-				},
-			}
+		case *dns.CNAME:
+			populateRecordSet(rrs, &destRecords, record.Header().Name, "CNAME", t.Target)
+
+		case *dns.MX:
+			populateRecordSet(rrs, &destRecords, record.Header().Name, "MX", t.Mx)
+
+		case *dns.TXT:
+
+			value := fmt.Sprintf("\"%s\"", strings.Join(t.Txt, " "))
+			populateRecordSet(rrs, &destRecords, record.Header().Name, "TXT", value)
+
 		default:
-			// NOOP
+			//key := record.Header().Name + ":" + destRecords //Maybe ??
+			//key := record.Header().Name + ":" + record.Header().
+
+			//if _, ok := (destRecords)[key]; ok {
+			//	delete(destRecords, key)
+			//}
+
 			continue
 		}
 
@@ -154,7 +155,7 @@ func replicateRecords(svc *route53.Route53, rs []dns.RR, event LambdaRule) error
 		}
 
 	}
-
+	fmt.Println(len(destRecords))
 	// TODO: Turn this into a loop on 500 record chunks
 	wg := sync.WaitGroup{}
 	chunkSize := 500
@@ -198,11 +199,26 @@ func makeRoute53Request(svc *route53.Route53, changes []*route53.Change, wg *syn
 
 	fmt.Printf("Created %d records; %#v\n", len(changes), resp)
 }
+func populateRecordSet(rr *route53.ResourceRecordSet, destRecords *map[string]*route53.ResourceRecordSet, recName string, recType string, recVal string) {
 
-func getDestinationRecords(svc *route53.Route53, zoneName string, event LambdaRule) error {
+	key := recName + ":" + recType
+	if _, ok := (*destRecords)[key]; ok {
+		delete(*destRecords, key)
+	}
+
+	rr.SetType(recType)
+	rr.ResourceRecords = []*route53.ResourceRecord{
+		{
+			Value: aws.String(recVal),
+		},
+	}
+
+}
+
+func getDestinationRecords(svc *route53.Route53, zoneName string, event LambdaRule) (map[string]*route53.ResourceRecordSet, error) {
 	DestinationRecords := make(map[string]*route53.ResourceRecordSet)
 	err := populateDestinationMap(svc, zoneName, event.ZoneID, nil, &DestinationRecords)
-	return err
+	return DestinationRecords, err
 }
 func populateDestinationMap(svc *route53.Route53, zoneName string, ZoneID string, respList2 *route53.ListResourceRecordSetsOutput, DestinationRecords *map[string]*route53.ResourceRecordSet) error {
 
@@ -210,7 +226,7 @@ func populateDestinationMap(svc *route53.Route53, zoneName string, ZoneID string
 
 	listParams = &route53.ListResourceRecordSetsInput{
 		HostedZoneId: aws.String(ZoneID), // Required
-		MaxItems:     aws.String("2")}
+		MaxItems:     aws.String("100")}
 
 	if respList2 != nil {
 		listParams = &route53.ListResourceRecordSetsInput{
